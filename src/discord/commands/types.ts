@@ -7,6 +7,7 @@ import type {
 
 import type { AppConfig } from '../../config/schema'
 import type { AppLogger } from '../../infra/logger'
+import type { MinecraftLogService } from '../../app/MinecraftLogService'
 import type { MinecraftRconService } from '../../app/MinecraftRconService'
 import type { MinecraftSupervisor } from '../../app/MinecraftSupervisor'
 import type { AuthorizationPolicy } from '../authorization'
@@ -20,6 +21,7 @@ export interface CommandContext {
   config: AppConfig
   logger: AppLogger
   minecraft: {
+    logService: MinecraftLogService
     rconService: MinecraftRconService
     supervisor: MinecraftSupervisor
   }

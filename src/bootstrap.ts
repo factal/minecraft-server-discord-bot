@@ -1,11 +1,13 @@
 import type { Client } from 'discord.js'
 
+import { MinecraftLogService } from './app/MinecraftLogService'
 import { MinecraftRconService } from './app/MinecraftRconService'
 import { MinecraftSupervisor } from './app/MinecraftSupervisor'
 import type { AppConfig } from './config/schema'
 import { attachCommandRouter } from './discord/commandRouter'
 import { discordCommands } from './discord/commands'
 import { createDiscordClient } from './discord/client'
+import { MinecraftLogNotifier } from './discord/MinecraftLogNotifier'
 import type { AppLogger } from './infra/logger'
 import { RconAdapter } from './minecraft/RconAdapter'
 
@@ -14,6 +16,19 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
   const rconLogger = logger.child({ component: 'rcon' })
   const rconService = new MinecraftRconService(
     () => new RconAdapter(config.minecraft.rcon, rconLogger),
+  )
+  const logService = new MinecraftLogService(
+    config.minecraft.logs,
+    logger.child({ component: 'minecraft-log-service' }),
+  )
+  const logNotifier = new MinecraftLogNotifier(
+    client,
+    logService,
+    {
+      ...config.discord,
+      logs: config.minecraft.logs,
+    },
+    logger.child({ component: 'minecraft-log-notifier' }),
   )
   const supervisor = new MinecraftSupervisor(
     config.minecraft.process,
@@ -25,6 +40,7 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
     config,
     logger,
     minecraft: {
+      logService,
       rconService,
       supervisor,
     },
@@ -39,6 +55,11 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
       },
       'discord client ready',
     )
+
+    logNotifier.start()
+    void logService.start().catch((error: unknown) => {
+      logger.error({ err: error }, 'failed to start minecraft latest.log tail')
+    })
   })
 
   client.on('warn', (message) => {

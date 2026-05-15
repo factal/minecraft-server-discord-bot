@@ -5,6 +5,7 @@ import type {
   MinecraftPlayerList,
   MinecraftStatus,
 } from '../../app/MinecraftRconService'
+import type { MinecraftLogEntry } from '../../app/MinecraftLogService'
 import type {
   MinecraftOperationResult,
   MinecraftProcessSnapshot,
@@ -48,6 +49,23 @@ export const mcCommand: DiscordCommand = {
         .addSubcommand((subcommand) =>
           subcommand.setName('list').setDescription('Minecraft の list command を実行します。'),
         ),
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName('logs')
+        .setDescription('Minecraft latest.log を確認します。')
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('tail')
+            .setDescription('latest.log の末尾を表示します。')
+            .addIntegerOption((option) =>
+              option
+                .setName('lines')
+                .setDescription('表示する行数です。')
+                .setMinValue(1)
+                .setMaxValue(100),
+            ),
+        ),
     ),
   async execute(interaction, context) {
     await interaction.deferReply({
@@ -79,6 +97,11 @@ export const mcCommand: DiscordCommand = {
 
     if (group === 'command' && subcommand === 'list') {
       await handleCommandList(interaction, context)
+      return
+    }
+
+    if (group === 'logs' && subcommand === 'tail') {
+      await handleLogsTail(interaction, context)
       return
     }
 
@@ -133,9 +156,21 @@ async function handleCommandList(
   await interaction.editReply(formatCommandResult(commandResult))
 }
 
+async function handleLogsTail(
+  interaction: ChatInputCommandInteraction,
+  context: CommandContext,
+): Promise<void> {
+  const lineCount = interaction.options.getInteger('lines') ?? 50
+  const entries = context.minecraft.logService.tail(lineCount)
+
+  await interaction.editReply(
+    formatLogTail(entries, lineCount, context.config.minecraft.logs.latestLogPath),
+  )
+}
+
 function formatStatus(status: MinecraftStatus, snapshot: MinecraftProcessSnapshot): string {
   const checkedAt = Math.floor(status.checkedAt.getTime() / 1_000)
-  const processLines = formatSnapshotLines(snapshot)
+  const processLines = formatSnapshotLines(snapshot, { includeLastError: false })
 
   if (!status.rconReachable) {
     return [
@@ -189,18 +224,62 @@ function formatCommandResult(commandResult: MinecraftCommandResult): string {
   return `${header}\n\n${codeBlock(body)}`
 }
 
+function formatLogTail(
+  entries: MinecraftLogEntry[],
+  requestedLineCount: number,
+  path: string,
+): string {
+  if (entries.length === 0) {
+    return [
+      'Minecraft latest.log tail',
+      '',
+      'No log lines have been captured yet.',
+      `Path: ${path}`,
+    ].join('\n')
+  }
+
+  const headerLines = [
+    'Minecraft latest.log tail',
+    `Lines: ${entries.length}/${requestedLineCount}`,
+    `Path: ${path}`,
+    '',
+  ]
+  const headerLength = headerLines.join('\n').length
+  const body = truncateForDiscord(
+    entries.map((entry) => entry.line).join('\n'),
+    DISCORD_MESSAGE_LIMIT - headerLength - CODE_BLOCK_OVERHEAD - RESPONSE_RESERVE,
+  )
+
+  return [...headerLines, codeBlock(body)].join('\n')
+}
+
 function formatOperationResult(title: string, result: MinecraftOperationResult): string {
-  return [
+  const lines = [
     title,
     '',
     result.ok ? 'Result: ok' : 'Result: failed',
     `Message: ${result.message}`,
     '',
     ...formatSnapshotLines(result.snapshot),
-  ].join('\n')
+  ]
+
+  if (!result.ok && result.snapshot.recentLogs.length > 0) {
+    const recentLogs = result.snapshot.recentLogs.slice(-8).join('\n')
+
+    lines.push('', 'Recent process logs:', codeBlock(truncateForDiscord(recentLogs, 1_000)))
+  }
+
+  return lines.join('\n')
 }
 
-function formatSnapshotLines(snapshot: MinecraftProcessSnapshot): string[] {
+interface FormatSnapshotOptions {
+  includeLastError?: boolean
+}
+
+function formatSnapshotLines(
+  snapshot: MinecraftProcessSnapshot,
+  options: FormatSnapshotOptions = {},
+): string[] {
   const lines = [`Process: ${snapshot.state}`]
 
   if (snapshot.pid) {
@@ -223,7 +302,7 @@ function formatSnapshotLines(snapshot: MinecraftProcessSnapshot): string[] {
     )
   }
 
-  if (snapshot.lastError) {
+  if (options.includeLastError !== false && snapshot.lastError) {
     lines.push(`Last error: ${truncateForDiscord(snapshot.lastError, 300)}`)
   }
 

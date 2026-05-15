@@ -43,12 +43,16 @@ describe('loadConfig', () => {
         guildId: '234567890123456789',
       },
       minecraft: {
+        logs: {
+          bufferLines: 200,
+          latestLogPath: resolve('server', 'logs/latest.log'),
+          notificationBatchLines: 20,
+          notificationBatchMs: 5000,
+          pollIntervalMs: 1000,
+        },
         process: {
-          cwd: resolve('nomi-ceu-1.7.7-server'),
-          javaPath: 'java',
-          jarPath: 'forge-1.12.2-14.23.5.2860.jar',
-          jvmArgs: ['-server', '-Xms2048M', '-Xmx2048M'],
-          serverArgs: ['nogui'],
+          cwd: resolve('server'),
+          startScript: resolve('server', 'launch.sh'),
           startupTimeoutMs: 180000,
           shutdownTimeoutMs: 60000,
           killAfterMs: 120000,
@@ -96,10 +100,7 @@ describe('loadConfig', () => {
     const config = loadConfig({
       ...validEnv,
       MINECRAFT_CWD: 'custom-server',
-      MINECRAFT_JAVA_PATH: '/usr/bin/java',
-      MINECRAFT_JAR_PATH: 'server.jar',
-      MINECRAFT_JVM_ARGS: '-Xms1G,-Xmx2G',
-      MINECRAFT_SERVER_ARGS: 'nogui,--demo',
+      MINECRAFT_START_SCRIPT: 'scripts/start-server.sh',
       MINECRAFT_READY_LOG_PATTERN: 'Server ready',
       MINECRAFT_STARTUP_TIMEOUT_MS: '2000',
       MINECRAFT_SHUTDOWN_TIMEOUT_MS: '3000',
@@ -107,17 +108,43 @@ describe('loadConfig', () => {
       MINECRAFT_LOG_BUFFER_LINES: '50',
     })
 
+    expect(config.minecraft.logs).toMatchObject({
+      bufferLines: 50,
+      latestLogPath: resolve('custom-server', 'logs/latest.log'),
+    })
     expect(config.minecraft.process).toMatchObject({
       cwd: resolve('custom-server'),
-      javaPath: '/usr/bin/java',
-      jarPath: 'server.jar',
-      jvmArgs: ['-Xms1G', '-Xmx2G'],
-      serverArgs: ['nogui', '--demo'],
+      startScript: resolve('custom-server', 'scripts/start-server.sh'),
       startupTimeoutMs: 2000,
       shutdownTimeoutMs: 3000,
       killAfterMs: 4000,
       logBufferLines: 50,
     })
     expect(config.minecraft.process.readyLogPattern.test('Server ready')).toBe(true)
+  })
+
+  it('loads explicit Minecraft log notification options', () => {
+    const config = loadConfig({
+      ...validEnv,
+      DISCORD_MINECRAFT_EVENT_CHANNEL_ID: '567890123456789012',
+      DISCORD_MINECRAFT_ERROR_CHANNEL_ID: '678901234567890123',
+      MINECRAFT_CWD: 'custom-server',
+      MINECRAFT_LATEST_LOG_PATH: 'custom/latest.log',
+      MINECRAFT_LOG_NOTIFY_BATCH_LINES: '10',
+      MINECRAFT_LOG_NOTIFY_BATCH_MS: '2500',
+      MINECRAFT_LOG_TAIL_POLL_MS: '500',
+    })
+
+    expect(config.discord).toMatchObject({
+      minecraftErrorChannelId: '678901234567890123',
+      minecraftEventChannelId: '567890123456789012',
+    })
+    expect(config.minecraft.logs).toEqual({
+      bufferLines: 200,
+      latestLogPath: resolve('custom-server', 'custom/latest.log'),
+      notificationBatchLines: 10,
+      notificationBatchMs: 2500,
+      pollIntervalMs: 500,
+    })
   })
 })

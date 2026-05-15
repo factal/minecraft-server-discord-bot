@@ -11,13 +11,10 @@ import type { AppConfig } from '../src/config/schema'
 
 const processConfig: AppConfig['minecraft']['process'] = {
   cwd: '/tmp/minecraft',
-  javaPath: 'java',
-  jarPath: 'server.jar',
-  jvmArgs: ['-Xms1G', '-Xmx1G'],
   killAfterMs: 50,
   logBufferLines: 20,
   readyLogPattern: /Done \(/,
-  serverArgs: ['nogui'],
+  startScript: '/tmp/minecraft/launch.sh',
   shutdownTimeoutMs: 50,
   startupTimeoutMs: 50,
 }
@@ -72,11 +69,15 @@ class FakeRconPort implements RconPort {
 describe('MinecraftSupervisor', () => {
   it('marks the server running when the ready log is observed', async () => {
     const fakeProcess = new FakeMinecraftProcess()
+    const spawnCalls: Array<{ args: string[]; command: string }> = []
     const supervisor = new MinecraftSupervisor(
       processConfig,
       () => new FakeRconPort(),
       logger,
-      () => fakeProcess as unknown as ChildProcessWithoutNullStreams,
+      (command, args) => {
+        spawnCalls.push({ args, command })
+        return fakeProcess as unknown as ChildProcessWithoutNullStreams
+      },
     )
 
     const resultPromise = supervisor.start()
@@ -90,6 +91,7 @@ describe('MinecraftSupervisor', () => {
         state: 'running',
       },
     })
+    expect(spawnCalls).toEqual([{ args: [], command: '/tmp/minecraft/launch.sh' }])
   })
 
   it('marks the server crashed when it exits while starting', async () => {

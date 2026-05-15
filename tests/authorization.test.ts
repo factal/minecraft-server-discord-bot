@@ -18,12 +18,16 @@ const config: AppConfig = {
     allowedUserIds: ['456789012345678901'],
   },
   minecraft: {
+    logs: {
+      bufferLines: 100,
+      latestLogPath: '/tmp/minecraft/logs/latest.log',
+      notificationBatchLines: 20,
+      notificationBatchMs: 5000,
+      pollIntervalMs: 1000,
+    },
     process: {
       cwd: '/tmp/minecraft',
-      javaPath: 'java',
-      jarPath: 'server.jar',
-      jvmArgs: ['-Xms1G', '-Xmx1G'],
-      serverArgs: ['nogui'],
+      startScript: '/tmp/minecraft/launch.sh',
       readyLogPattern: /Done \(/,
       startupTimeoutMs: 1000,
       shutdownTimeoutMs: 1000,

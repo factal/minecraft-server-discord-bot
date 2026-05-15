@@ -108,20 +108,22 @@ export class MinecraftSupervisor {
 
     this.clearForStart()
 
-    const args = [...this.config.jvmArgs, '-jar', this.config.jarPath, ...this.config.serverArgs]
+    const args: string[] = []
 
     this.logger.info(
       {
         args,
         cwd: this.config.cwd,
-        javaPath: this.config.javaPath,
+        startScript: this.config.startScript,
       },
       'starting minecraft server process',
     )
 
-    const child = this.spawnProcess(this.config.javaPath, args, {
+    const child = this.spawnProcess(this.config.startScript, args, {
       cwd: this.config.cwd,
+      detached: process.platform !== 'win32',
       stdio: 'pipe',
+      windowsHide: true,
     })
 
     this.process = child
@@ -224,6 +226,7 @@ export class MinecraftSupervisor {
         await rcon.connect()
         await rcon.send('stop')
         this.logger.info('sent minecraft stop command through RCON')
+        this.closeStdinAfterStop(child)
         return
       } finally {
         await rcon.disconnect()
@@ -236,10 +239,22 @@ export class MinecraftSupervisor {
     }
 
     try {
-      child.stdin.write('stop\n')
+      child.stdin.end('stop\n')
       this.logger.info('sent minecraft stop command through stdin')
     } catch (error) {
       this.logger.warn({ err: error }, 'failed to write minecraft stop command to stdin')
+    }
+  }
+
+  private closeStdinAfterStop(child: ChildProcessWithoutNullStreams): void {
+    if (child.stdin.destroyed || child.stdin.closed) {
+      return
+    }
+
+    try {
+      child.stdin.end('\n')
+    } catch (error) {
+      this.logger.debug({ err: error }, 'failed to close minecraft process stdin after stop')
     }
   }
 
@@ -274,7 +289,15 @@ export class MinecraftSupervisor {
       signal ?? 'null'
     }.`
     this.setState('crashed')
-    this.logger.error({ code, signal, previousState }, 'minecraft process crashed')
+    this.logger.error(
+      {
+        code,
+        recentLogs: this.logLines.slice(-20),
+        signal,
+        previousState,
+      },
+      'minecraft process crashed',
+    )
   }
 
   private collectLogChunk(stream: 'stderr' | 'stdout', chunk: Buffer): void {
@@ -345,6 +368,18 @@ export class MinecraftSupervisor {
   private killProcess(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): void {
     if (child.killed) {
       return
+    }
+
+    if (process.platform !== 'win32' && child.pid) {
+      try {
+        process.kill(-child.pid, signal)
+        return
+      } catch (error) {
+        this.logger.warn(
+          { err: error, pid: child.pid, signal },
+          'failed to kill minecraft process group',
+        )
+      }
     }
 
     child.kill(signal)
