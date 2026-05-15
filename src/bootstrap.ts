@@ -3,6 +3,7 @@ import type { Client } from 'discord.js'
 import { MinecraftLogService } from './app/MinecraftLogService'
 import { MinecraftRconService } from './app/MinecraftRconService'
 import { MinecraftSupervisor } from './app/MinecraftSupervisor'
+import { PublicIpService } from './app/PublicIpService'
 import type { AppConfig } from './config/schema'
 import { attachCommandRouter } from './discord/commandRouter'
 import { discordCommands } from './discord/commands'
@@ -18,6 +19,7 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
   const rconService = new MinecraftRconService(
     () => new RconAdapter(config.minecraft.rcon, rconLogger),
   )
+  const publicIpService = new PublicIpService(config.minecraft.publicIp)
   const logService = new MinecraftLogService(
     config.minecraft.logs,
     logger.child({ component: 'minecraft-log-service' }),
@@ -48,6 +50,7 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
     logger,
     minecraft: {
       logService,
+      publicIpService,
       rconService,
       supervisor,
     },

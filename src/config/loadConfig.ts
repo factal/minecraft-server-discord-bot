@@ -49,6 +49,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         notificationBatchMs: raw.MINECRAFT_LOG_NOTIFY_BATCH_MS,
         pollIntervalMs: raw.MINECRAFT_LOG_TAIL_POLL_MS,
       },
+      publicIp: {
+        cacheMs: raw.MINECRAFT_PUBLIC_IP_CACHE_MS,
+        lookupUrl: raw.MINECRAFT_PUBLIC_IP_LOOKUP_URL,
+        staticIpAddress: raw.MINECRAFT_PUBLIC_IP || undefined,
+        timeoutMs: raw.MINECRAFT_PUBLIC_IP_TIMEOUT_MS,
+      },
       process: {
         cwd: minecraftCwd,
         startScript: resolve(minecraftCwd, raw.MINECRAFT_START_SCRIPT),

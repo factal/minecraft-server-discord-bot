@@ -10,6 +10,7 @@ import type {
   MinecraftOperationResult,
   MinecraftProcessSnapshot,
 } from '../../app/MinecraftSupervisor'
+import type { PublicIpStatus } from '../../app/PublicIpService'
 import type { CommandContext, DiscordCommand } from './types'
 
 const DISCORD_MESSAGE_LIMIT = 2_000
@@ -115,10 +116,13 @@ async function handleStatus(
   interaction: ChatInputCommandInteraction,
   context: CommandContext,
 ): Promise<void> {
-  const status = await context.minecraft.rconService.getStatus()
+  const [status, publicIpStatus] = await Promise.all([
+    context.minecraft.rconService.getStatus(),
+    context.minecraft.publicIpService.getPublicIp(),
+  ])
   const snapshot = context.minecraft.supervisor.getSnapshot()
 
-  await interaction.editReply(formatStatus(status, snapshot))
+  await interaction.editReply(formatStatus(status, snapshot, publicIpStatus))
 }
 
 async function handlePlayers(
@@ -174,15 +178,21 @@ async function handleLogsTail(
   )
 }
 
-function formatStatus(status: MinecraftStatus, snapshot: MinecraftProcessSnapshot): string {
+function formatStatus(
+  status: MinecraftStatus,
+  snapshot: MinecraftProcessSnapshot,
+  publicIpStatus: PublicIpStatus,
+): string {
   const checkedAt = Math.floor(status.checkedAt.getTime() / 1_000)
   const processLines = formatSnapshotLines(snapshot, { includeLastError: false })
+  const publicIpLine = formatPublicIp(publicIpStatus)
 
   if (!status.rconReachable) {
     return [
       'Minecraft status',
       '',
       ...processLines,
+      publicIpLine,
       '',
       'RCON: offline',
       `Error: ${status.errorMessage ?? 'unknown error'}`,
@@ -198,11 +208,20 @@ function formatStatus(status: MinecraftStatus, snapshot: MinecraftProcessSnapsho
     'Minecraft status',
     '',
     ...processLines,
+    publicIpLine,
     '',
     'RCON: online',
     playerSummary,
     `Checked: <t:${checkedAt}:R>`,
   ].join('\n')
+}
+
+function formatPublicIp(status: PublicIpStatus): string {
+  if (status.ipAddress) {
+    return `Global IP: ${status.ipAddress}`
+  }
+
+  return `Global IP: unknown (${status.errorMessage ?? 'lookup failed'})`
 }
 
 function formatPlayers(playerList: MinecraftPlayerList): string {

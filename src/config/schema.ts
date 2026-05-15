@@ -1,3 +1,5 @@
+import { isIP } from 'node:net'
+
 import { z } from 'zod'
 
 const discordSnowflakePattern = /^\d{17,20}$/
@@ -26,6 +28,15 @@ export function parseCommaSeparatedList(value: string | undefined): string[] {
 }
 
 const snowflakeSchema = z.string().regex(discordSnowflakePattern, 'Expected a Discord snowflake ID')
+
+const optionalIpAddressSchema = z
+  .string()
+  .trim()
+  .optional()
+  .default('')
+  .refine((value) => value === '' || isIP(value) !== 0, {
+    message: 'Expected an IP address',
+  })
 
 const optionalSnowflakeSchema = z
   .string()
@@ -83,6 +94,10 @@ export const rawEnvSchema = z.object({
   RCON_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(5_000),
   MINECRAFT_CWD: z.string().min(1).default('server'),
   MINECRAFT_LATEST_LOG_PATH: z.string().min(1).default('logs/latest.log'),
+  MINECRAFT_PUBLIC_IP: optionalIpAddressSchema,
+  MINECRAFT_PUBLIC_IP_CACHE_MS: z.coerce.number().int().min(0).max(86_400_000).default(300_000),
+  MINECRAFT_PUBLIC_IP_LOOKUP_URL: z.url().default('https://api.ipify.org'),
+  MINECRAFT_PUBLIC_IP_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(3_000),
   MINECRAFT_START_SCRIPT: z.string().min(1).default('launch.sh'),
   MINECRAFT_READY_LOG_PATTERN: z.string().min(1).default('Done \\('),
   MINECRAFT_STARTUP_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(180_000),
@@ -114,6 +129,12 @@ export interface AppConfig {
       notificationBatchLines: number
       notificationBatchMs: number
       pollIntervalMs: number
+    }
+    publicIp: {
+      cacheMs: number
+      lookupUrl: string
+      staticIpAddress?: string
+      timeoutMs: number
     }
     process: {
       cwd: string

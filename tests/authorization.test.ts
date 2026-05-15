@@ -25,6 +25,11 @@ const config: AppConfig = {
       notificationBatchMs: 5000,
       pollIntervalMs: 1000,
     },
+    publicIp: {
+      cacheMs: 300000,
+      lookupUrl: 'https://api.ipify.org',
+      timeoutMs: 3000,
+    },
     process: {
       cwd: '/tmp/minecraft',
       startScript: '/tmp/minecraft/launch.sh',

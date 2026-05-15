@@ -50,6 +50,11 @@ describe('loadConfig', () => {
           notificationBatchMs: 5000,
           pollIntervalMs: 1000,
         },
+        publicIp: {
+          cacheMs: 300000,
+          lookupUrl: 'https://api.ipify.org',
+          timeoutMs: 3000,
+        },
         process: {
           cwd: resolve('server'),
           startScript: resolve('server', 'launch.sh'),
@@ -144,5 +149,31 @@ describe('loadConfig', () => {
       notificationBatchMs: 2500,
       pollIntervalMs: 500,
     })
+  })
+
+  it('loads explicit Minecraft public IP options', () => {
+    const config = loadConfig({
+      ...validEnv,
+      MINECRAFT_PUBLIC_IP: '203.0.113.10',
+      MINECRAFT_PUBLIC_IP_CACHE_MS: '1000',
+      MINECRAFT_PUBLIC_IP_LOOKUP_URL: 'https://example.com/ip',
+      MINECRAFT_PUBLIC_IP_TIMEOUT_MS: '2000',
+    })
+
+    expect(config.minecraft.publicIp).toEqual({
+      cacheMs: 1000,
+      lookupUrl: 'https://example.com/ip',
+      staticIpAddress: '203.0.113.10',
+      timeoutMs: 2000,
+    })
+  })
+
+  it('rejects an invalid explicit Minecraft public IP', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnv,
+        MINECRAFT_PUBLIC_IP: 'not an ip',
+      }),
+    ).toThrow(/Expected an IP address/)
   })
 })
