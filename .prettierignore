@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+nomi-ceu-1.7.7-server/
+server/
+INSTRUCTIONS.md
+.env
+.env.*
