@@ -7,6 +7,7 @@ import type { AppConfig } from './config/schema'
 import { attachCommandRouter } from './discord/commandRouter'
 import { discordCommands } from './discord/commands'
 import { createDiscordClient } from './discord/client'
+import { MinecraftLifecycleNotifier } from './discord/MinecraftLifecycleNotifier'
 import { MinecraftLogNotifier } from './discord/MinecraftLogNotifier'
 import type { AppLogger } from './infra/logger'
 import { RconAdapter } from './minecraft/RconAdapter'
@@ -35,6 +36,12 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
     () => new RconAdapter(config.minecraft.rcon, rconLogger),
     logger.child({ component: 'minecraft-supervisor' }),
   )
+  const lifecycleNotifier = new MinecraftLifecycleNotifier(
+    client,
+    supervisor,
+    config.discord,
+    logger.child({ component: 'minecraft-lifecycle-notifier' }),
+  )
 
   attachCommandRouter(client, discordCommands, {
     config,
@@ -57,6 +64,7 @@ export async function bootstrap(config: AppConfig, logger: AppLogger): Promise<C
     )
 
     logNotifier.start()
+    lifecycleNotifier.start()
     void logService.start().catch((error: unknown) => {
       logger.error({ err: error }, 'failed to start minecraft latest.log tail')
     })

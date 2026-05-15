@@ -34,7 +34,9 @@ export const mcCommand: DiscordCommand = {
         .setName('stop')
         .setDescription('Minecraft server process を停止します。')
         .addBooleanOption((option) =>
-          option.setName('force').setDescription('RCON/stdin を使わず即座に kill します。'),
+          option
+            .setName('force')
+            .setDescription('RCON/stdin を使わず即座に kill します。デフォルトは true です。'),
         ),
     )
     .addSubcommand((subcommand) =>
@@ -134,17 +136,21 @@ async function handleStart(
 ): Promise<void> {
   const result = await context.minecraft.supervisor.start()
 
-  await interaction.editReply(formatOperationResult('Minecraft start', result))
+  await interaction.editReply(
+    formatOperationResult('Minecraft start', result, { includeLastError: false }),
+  )
 }
 
 async function handleStop(
   interaction: ChatInputCommandInteraction,
   context: CommandContext,
 ): Promise<void> {
-  const force = interaction.options.getBoolean('force') ?? false
+  const force = interaction.options.getBoolean('force') ?? true
   const result = await context.minecraft.supervisor.stop(force)
 
-  await interaction.editReply(formatOperationResult('Minecraft stop', result))
+  await interaction.editReply(
+    formatOperationResult('Minecraft stop', result, { includeLastError: false }),
+  )
 }
 
 async function handleCommandList(
@@ -253,14 +259,18 @@ function formatLogTail(
   return [...headerLines, codeBlock(body)].join('\n')
 }
 
-function formatOperationResult(title: string, result: MinecraftOperationResult): string {
+function formatOperationResult(
+  title: string,
+  result: MinecraftOperationResult,
+  options: FormatSnapshotOptions = {},
+): string {
   const lines = [
     title,
     '',
     result.ok ? 'Result: ok' : 'Result: failed',
     `Message: ${result.message}`,
     '',
-    ...formatSnapshotLines(result.snapshot),
+    ...formatSnapshotLines(result.snapshot, options),
   ]
 
   if (!result.ok && result.snapshot.recentLogs.length > 0) {

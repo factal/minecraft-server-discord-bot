@@ -38,6 +38,16 @@ export interface MinecraftOperationResult {
   snapshot: MinecraftProcessSnapshot
 }
 
+export type MinecraftLifecycleEventKind = 'crashed' | 'started' | 'stopped'
+
+export interface MinecraftLifecycleEvent {
+  at: Date
+  kind: MinecraftLifecycleEventKind
+  snapshot: MinecraftProcessSnapshot
+}
+
+export type MinecraftLifecycleEventListener = (event: MinecraftLifecycleEvent) => void
+
 type ProcessSpawner = (
   command: string,
   args: string[],
@@ -51,6 +61,7 @@ interface StateWaiter {
 }
 
 export class MinecraftSupervisor {
+  private readonly lifecycleListeners = new Set<MinecraftLifecycleEventListener>()
   private readonly logLines: string[] = []
   private readonly operationQueue = new OperationQueue()
   private readonly waiters: StateWaiter[] = []
@@ -91,6 +102,14 @@ export class MinecraftSupervisor {
 
   async stop(force: boolean): Promise<MinecraftOperationResult> {
     return this.operationQueue.run(() => this.stopInternal(force))
+  }
+
+  onLifecycleEvent(listener: MinecraftLifecycleEventListener): () => void {
+    this.lifecycleListeners.add(listener)
+
+    return () => {
+      this.lifecycleListeners.delete(listener)
+    }
   }
 
   private async startInternal(): Promise<MinecraftOperationResult> {
@@ -396,8 +415,37 @@ export class MinecraftSupervisor {
   }
 
   private setState(state: MinecraftServerState): void {
+    const previousState = this.state
+
+    if (previousState === state) {
+      this.notifyWaiters()
+      return
+    }
+
     this.state = state
     this.notifyWaiters()
+    this.emitLifecycleEvent(previousState, state)
+  }
+
+  private emitLifecycleEvent(
+    previousState: MinecraftServerState,
+    state: MinecraftServerState,
+  ): void {
+    const kind = lifecycleKindForState(previousState, state)
+
+    if (!kind) {
+      return
+    }
+
+    const event = {
+      at: new Date(),
+      kind,
+      snapshot: this.getSnapshot(),
+    }
+
+    for (const listener of this.lifecycleListeners) {
+      listener(event)
+    }
   }
 
   private waitForState(
@@ -453,4 +501,23 @@ export class MinecraftSupervisor {
       snapshot: this.getSnapshot(),
     }
   }
+}
+
+function lifecycleKindForState(
+  previousState: MinecraftServerState,
+  state: MinecraftServerState,
+): MinecraftLifecycleEventKind | undefined {
+  if (state === 'running') {
+    return 'started'
+  }
+
+  if (state === 'stopped' && previousState !== 'stopped') {
+    return 'stopped'
+  }
+
+  if (state === 'crashed' && previousState !== 'crashed') {
+    return 'crashed'
+  }
+
+  return undefined
 }

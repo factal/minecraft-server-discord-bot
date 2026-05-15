@@ -104,7 +104,7 @@ export class MinecraftLogNotifier {
       return
     }
 
-    for (const content of buildDiscordMessages('Minecraft log events', lines)) {
+    for (const content of buildDiscordMessages('', lines)) {
       await channel.send({
         allowedMentions: {
           parse: [],
@@ -116,7 +116,7 @@ export class MinecraftLogNotifier {
 
   private channelIdForEvent(event: MinecraftLogEvent): string | undefined {
     if (event.kind === 'error') {
-      return this.config.minecraftErrorChannelId ?? this.config.minecraftEventChannelId
+      return undefined
     }
 
     return this.config.minecraftEventChannelId
@@ -139,9 +139,7 @@ export function formatLogEvent(event: MinecraftLogEvent): string {
     return `${timestamp} [death] ${message}`
   }
 
-  const level = event.level ? `/${event.level}` : ''
-
-  return `${timestamp} [error${level}] detected`
+  return `${timestamp} [error] detected`
 }
 
 export function buildDiscordMessages(header: string, lines: string[]): string[] {

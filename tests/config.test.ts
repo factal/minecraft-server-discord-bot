@@ -127,7 +127,6 @@ describe('loadConfig', () => {
     const config = loadConfig({
       ...validEnv,
       DISCORD_MINECRAFT_EVENT_CHANNEL_ID: '567890123456789012',
-      DISCORD_MINECRAFT_ERROR_CHANNEL_ID: '678901234567890123',
       MINECRAFT_CWD: 'custom-server',
       MINECRAFT_LATEST_LOG_PATH: 'custom/latest.log',
       MINECRAFT_LOG_NOTIFY_BATCH_LINES: '10',
@@ -136,7 +135,6 @@ describe('loadConfig', () => {
     })
 
     expect(config.discord).toMatchObject({
-      minecraftErrorChannelId: '678901234567890123',
       minecraftEventChannelId: '567890123456789012',
     })
     expect(config.minecraft.logs).toEqual({

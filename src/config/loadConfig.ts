@@ -39,7 +39,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       guildId: raw.DISCORD_GUILD_ID,
       adminRoleIds: raw.DISCORD_ADMIN_ROLE_IDS,
       allowedUserIds: raw.DISCORD_ALLOWED_USER_IDS,
-      minecraftErrorChannelId: raw.DISCORD_MINECRAFT_ERROR_CHANNEL_ID,
       minecraftEventChannelId: raw.DISCORD_MINECRAFT_EVENT_CHANNEL_ID,
     },
     minecraft: {

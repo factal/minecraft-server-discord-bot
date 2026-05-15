@@ -77,7 +77,6 @@ export const rawEnvSchema = z.object({
   DISCORD_ADMIN_ROLE_IDS: snowflakeListSchema,
   DISCORD_ALLOWED_USER_IDS: snowflakeListSchema,
   DISCORD_MINECRAFT_EVENT_CHANNEL_ID: optionalSnowflakeSchema,
-  DISCORD_MINECRAFT_ERROR_CHANNEL_ID: optionalSnowflakeSchema,
   RCON_HOST: z.string().min(1).default('127.0.0.1'),
   RCON_PORT: z.coerce.number().int().min(1).max(65535).default(25575),
   RCON_PASSWORD: z.string().min(1, 'RCON_PASSWORD is required'),
@@ -106,7 +105,6 @@ export interface AppConfig {
     guildId: string
     adminRoleIds: string[]
     allowedUserIds: string[]
-    minecraftErrorChannelId?: string
     minecraftEventChannelId?: string
   }
   minecraft: {

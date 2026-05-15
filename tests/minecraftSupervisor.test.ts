@@ -141,4 +141,53 @@ describe('MinecraftSupervisor', () => {
     })
     expect(fakeRcon.commands).toEqual(['stop'])
   })
+
+  it('emits lifecycle events when the server starts and stops', async () => {
+    const fakeProcess = new FakeMinecraftProcess()
+    const supervisor = new MinecraftSupervisor(
+      processConfig,
+      () =>
+        new FakeRconPort(() => {
+          fakeProcess.emit('exit', 0, null)
+        }),
+      logger,
+      () => fakeProcess as unknown as ChildProcessWithoutNullStreams,
+    )
+    const events: string[] = []
+
+    supervisor.onLifecycleEvent((event) => {
+      events.push(event.kind)
+    })
+
+    const startPromise = supervisor.start()
+    await Promise.resolve()
+    fakeProcess.stdout.write('[Server thread/INFO]: Done (1.234s)! For help, type "help"\n')
+    await startPromise
+    await supervisor.stop(false)
+
+    expect(events).toEqual(['started', 'stopped'])
+  })
+
+  it('emits a crashed lifecycle event when the process exits unexpectedly', async () => {
+    const fakeProcess = new FakeMinecraftProcess()
+    const supervisor = new MinecraftSupervisor(
+      processConfig,
+      () => new FakeRconPort(),
+      logger,
+      () => fakeProcess as unknown as ChildProcessWithoutNullStreams,
+    )
+    const events: string[] = []
+
+    supervisor.onLifecycleEvent((event) => {
+      events.push(event.kind)
+    })
+
+    const resultPromise = supervisor.start()
+    await Promise.resolve()
+
+    fakeProcess.emit('exit', 1, null)
+
+    await resultPromise
+    expect(events).toEqual(['crashed'])
+  })
 })
